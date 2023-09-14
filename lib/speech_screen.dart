@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:avatar_glow/avatar_glow.dart';
+import 'package:clasificador_basuras/result_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -17,6 +18,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   SpeechToText speechToText = SpeechToText();
   var text = 'Presione el boton para comenzar a hablar';
   var isListening = false;
+  bool isLoading = false;
   Timer? timer;
 
   Timer? agradecimiento;
@@ -39,14 +41,15 @@ class _SpeechScreenState extends State<SpeechScreen> {
         repeat: true,
         repeatPauseDuration: const Duration(milliseconds: 100),
         showTwoGlows: true,
-        glowColor: Colors.redAccent,
+        glowColor: Colors.greenAccent[700]!,
         child: GestureDetector(
           onTapDown: (details) async {
-            if (!isListening) {
+            if (!isListening && !isLoading) {
               var available = await speechToText.initialize();
               if (available) {
                 setState(() {
                   isListening = true;
+                  isLoading = true;
                   speechToText.listen(onResult: (result) {
                     setState(() {
                       text = result.recognizedWords;
@@ -54,23 +57,17 @@ class _SpeechScreenState extends State<SpeechScreen> {
                   });
                 });
 
-                timer = Timer(const Duration(seconds: 4), () async {
-                  setState(() {
-                    isListening = false;
-                    speechToText.stop();
-                  });
-                  String clasificacion = "";
+                try {
                   final canecas =
                       FirebaseFirestore.instance.collection('desechos');
 
                   final query = canecas.where('nombre', isEqualTo: text);
                   final snapshot = await query.get();
+                  String clasificacion = "";
                   if (snapshot.docs.isEmpty) {
                     clasificacion = "No se encontro el desecho";
                   } else {
                     for (var doc in snapshot.docs) {
-                      print("----->>>>>");
-                      print(doc);
                       // ignore: prefer_interpolation_to_compose_strings
                       clasificacion = "va en la caneca " + doc['caneca'];
                     }
@@ -78,18 +75,28 @@ class _SpeechScreenState extends State<SpeechScreen> {
                   setState(() {
                     text = "$text $clasificacion";
                   });
-
                   agradecimiento = Timer(const Duration(seconds: 4), () {
                     setState(() {
-                      text = "Muchas gracias por clasificar los desechos";
+                      isLoading = false;
+                      isListening = false;
+                      speechToText.stop();
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => Result_screen(
+                                    clasificacion: clasificacion,
+                                  )));
                     });
                   });
-                });
+                } catch (e) {
+                  print(e);
+                  // No se necesita hacer nada aquí
+                }
               }
             }
           },
           child: CircleAvatar(
-            backgroundColor: Colors.redAccent,
+            backgroundColor: isLoading ? Colors.grey : Colors.greenAccent[700],
             radius: 35,
             // ignore: dead_code
             child: Icon(isListening ? Icons.mic : Icons.mic_none,
@@ -98,11 +105,12 @@ class _SpeechScreenState extends State<SpeechScreen> {
         ),
       ),
       appBar: AppBar(
+        backgroundColor: Colors.greenAccent[400],
         leading: const Icon(Icons.restore_from_trash_outlined),
         toolbarHeight: 80.0,
         title: const Text(
           "Clasificador de desechos",
-          style: TextStyle(fontWeight: FontWeight.w300),
+          style: TextStyle(fontWeight: FontWeight.w300, color: Colors.white),
         ),
       ),
       body: Padding(

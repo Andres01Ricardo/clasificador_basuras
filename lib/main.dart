@@ -16,10 +16,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       title: 'Clasificador Basuras',
       debugShowCheckedModeBanner: false,
-      home: SpeechScreen(),
+      home: const SpeechScreen(),
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        useMaterial3: true,
+      ),
     );
   }
 }
